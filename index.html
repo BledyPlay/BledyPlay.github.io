@@ -70,9 +70,9 @@
             objects.forEach(obj => {
                 obj.setAttribute('visible', true);
                 obj.setAttribute('position', {
-                    x: Math.random() * 10 - 5,
+                    x: Math.random() * 20 - 10, // Расширяем зону размещения шаров
                     y: 1,
-                    z: Math.random() * 10 - 5
+                    z: Math.random() * 20 - 10 // Расширяем зону размещения шаров
                 });
             });
         }
@@ -90,11 +90,15 @@
 </head>
 <body>
     <a-scene>
-        <!-- Sky -->
-        <a-sky color="#87CEEB"></a-sky>
+        <!-- Background Image -->
+        <a-sky src="https://images.unsplash.com/photo-1570923008849-37545cadcc1e?q=80&w=1733&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3Dhttps://images.unsplash.com/photo-1570923008849-37545cadcc1e?q=80&w=1733&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" rotation="0 -90 0"></a-sky>
+
+        <!-- Adjusted Lighting -->
+        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="0.4" position="5 10 5"></a-light>
 
         <!-- Floor -->
-        <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#7CFC00"></a-plane>
+        <a-plane position="0 0 0" rotation="-90 0 0" width="40" height="40" color="#7CFC00" material="shader: flat; transparent: true; opacity: 0.8"></a-plane>
 
         <!-- Player -->
         <a-entity id="player" position="0 1.6 0">
@@ -122,10 +126,25 @@
             </a-entity>
         </a-entity>
 
-        <!-- Collectible Objects -->
-        <a-entity class="collectible" collectible position="-2 1 -2" geometry="primitive: sphere" radius="0.5" color="#FF0000"></a-entity>
-        <a-entity class="collectible" collectible position="2 1 -2" geometry="primitive: sphere" radius="0.5" color="#00FF00"></a-entity>
-        <a-entity class="collectible" collectible position="0 1 2" geometry="primitive: sphere" radius="0.5" color="#0000FF"></a-entity>
+        <!-- Generate More Collectible Objects -->
+        <script>
+            const colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'];
+            const numBalls = 50; // Количество шаров
+
+            for (let i = 0; i < numBalls; i++) {
+                const ball = document.createElement('a-entity');
+                ball.setAttribute('class', 'collectible');
+                ball.setAttribute('geometry', 'primitive: sphere; radius: 0.3'); // Уменьшаем размер шаров
+                ball.setAttribute('material', `color: ${colors[Math.floor(Math.random() * colors.length)]}`);
+                ball.setAttribute('position', {
+                    x: Math.random() * 20 - 10, // Расширяем зону размещения шаров
+                    y: 1,
+                    z: Math.random() * 20 - 10 // Расширяем зону размещения шаров
+                });
+                ball.setAttribute('collectible', '');
+                document.querySelector('a-scene').appendChild(ball);
+            }
+        </script>
 
         <!-- Timer and Score -->
         <a-text id="timer" value="Time: 30" position="-1.5 2.5 -3" color="#FFF" scale="2 2 2" visible="false"></a-text>
