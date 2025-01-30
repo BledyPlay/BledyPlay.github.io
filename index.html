@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VR Mini Game: Collecting Balls</title>
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-event-set-component@5.0.0/dist/aframe-event-set-component.min.js"></script>
+    <script>
+        let score = 0;
+        let timeLeft = 30;
+        let timerInterval;
+        let highScores = [];
+        function startGame() {
+            score = 0;
+            timeLeft = 30;
+            document.getElementById('score').setAttribute('value', `Score: ${score}`);
+            document.getElementById('timer').setAttribute('value', `Time: ${timeLeft}`);
+            document.getElementById('game-over').setAttribute('visible', false);
+            timerInterval = setInterval(updateTimer, 1000);
+            resetObjects();
+        }
+        function updateTimer() {
+            timeLeft--;
+            document.getElementById('timer').setAttribute('value', `Time: ${timeLeft}`);
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                endGame();
+            }
+        }
+        function endGame() {
+            document.getElementById('game-over').setAttribute('visible', true);
+            document.getElementById('final-score').setAttribute('value', `Final Score: ${score}`);
+            highScores.push(score);
+            highScores.sort((a, b) => b - a);
+            updateHighScores();
+        }
+        function updateHighScores() {
+            let highScoresText = 'High Scores:\n';
+            highScores.slice(0, 5).forEach((s, i) => {
+                highScoresText += `${i + 1}. ${s}\n`;
+            });
+            document.getElementById('high-scores').setAttribute('value', highScoresText);
+        }
+        function resetObjects() {
+            let objects = document.querySelectorAll('.collectible');
+            objects.forEach(obj => {
+                obj.setAttribute('visible', true);
+                obj.setAttribute('position', {
+                    x: Math.random() * 10 - 5,
+                    y: 1,
+                    z: Math.random() * 10 - 5
+                });
+            });
+        }
+        AFRAME.registerComponent('collectible', {
+            init: function () {
+                this.el.addEventListener('collide', () => {
+                    this.el.setAttribute('visible', false);
+                    score++;
+                    document.getElementById('score').setAttribute('value', `Score: ${score}`);
+                });
+            }
+        });
+    </script>
+</head>
+<body>
+    <a-scene>
+        <!-- Sky -->
+        <a-sky color="#87CEEB"></a-sky>
+        <!-- Floor -->
+        <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#7CFC00"></a-plane>
+        <!-- Player -->
+        <a-entity id="player" position="0 1.6 0">
+            <a-camera>
+                <a-entity cursor="fuse: true; fuseTimeout: 500"
+                          position="0 0 -1"
+                          geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+                          material="color: #00FF00; shader: flat">
+                </a-entity>
+            </a-camera>
+            <a-entity oculus-touch-controls="hand: left"></a-entity>
+            <a-entity oculus-touch-controls="hand: right"></a-entity>
+        </a-entity>
+        <!-- Collectible Objects -->
+        <a-entity class="collectible" collectible position="-2 1 -2" geometry="primitive: sphere" radius="0.5" color="#FF0000"></a-entity>
+        <a-entity class="collectible" collectible position="2 1 -2" geometry="primitive: sphere" radius="0.5" color="#00FF00"></a-entity>
+        <a-entity class="collectible" collectible position="0 1 2" geometry="primitive: sphere" radius="0.5" color="#0000FF"></a-entity>
+        <!-- Timer and Score -->
+        <a-text id="timer" value="Time: 30" position="-1.5 2.5 -3" color="#FFF" scale="2 2 2"></a-text>
+        <a-text id="score" value="Score: 0" position="1.5 2.5 -3" color="#FFF" scale="2 2 2"></a-text>
+        <!-- High Scores -->
+        <a-text id="high-scores" value="High Scores:\n1. 0\n2. 0\n3. 0\n4. 0\n5. 0" position="-4 1.5 -3" color="#FFF" scale="1.5 1.5 1.5"></a-text>
+        <!-- Game Over Message -->
+        <a-text id="game-over" value="Game Over!" position="0 1.5 -3" color="#FFF" scale="3 3 3" visible="false"></a-text>
+        <a-text id="final-score" value="Final Score: 0" position="0 1 -3" color="#FFF" scale="2 2 2" visible="false"></a-text>
+        <!-- Restart Button -->
+        <a-entity id="restart-button" position="0 0.5 -3" geometry="primitive: box" material="color: #FFA500" visible="false">
+            <a-text value="Restart" position="0 0 0.51" color="#FFF" align="center" scale="1.5 1.5 1.5"></a-text>
+            <a-animation attribute="rotation" to="0 360 0" dur="2000" repeat="indefinite"></a-animation>
+            <a-animation attribute="position" to="0 0.6 -3" dur="1000" direction="alternate" repeat="indefinite"></a-animation>
+            <a-event-set event="click" attribute="visible" to="false"></a-event-set>
+            <a-event-set event="click" target="#game-over" attribute="visible" to="false"></a-event-set>
+            <a-event-set event="click" target="#final-score" attribute="visible" to="false"></a-event-set>
+            <a-event-set event="click" target="#restart-button" attribute="visible" to="false"></a-event-set>
+            <a-event-set event="click" target="#high-scores" attribute="visible" to="true"></a-event-set>
+            <a-event-set event="click" target="#timer" attribute="visible" to="true"></a-event-set>
+            <a-event-set event="click" target="#score" attribute="visible" to="true"></a-event-set>
+            <a-event-set event="click" _="startGame()"></a-event-set>
+        </a-entity>
+    </a-scene>
+</body>
+</html>
