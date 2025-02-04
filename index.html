@@ -1,32 +1,39 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>VR Mini Game: Collecting Balls</title>
+    <title>VR Ball Collector</title>
     <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-physics-system@4.0.1/dist/aframe-physics-system.min.js"></script>
     <script src="https://unpkg.com/aframe-event-set-component@5.0.0/dist/aframe-event-set-component.min.js"></script>
     <script>
         let score = 0;
         let timeLeft = 30;
         let timerInterval;
-        let highScores = [];
+        let currentLevel = 1;
         
+        const levelConfig = {
+            1: {balls: 30, speed: 1, time: 30},
+            2: {balls: 40, speed: 1.5, time: 25},
+            3: {balls: 50, speed: 2, time: 20}
+        };
+
+        const ballTypes = {
+            red: {score: 1, effect: 'speed+', color: '#FF0000'},
+            blue: {score: 2, effect: 'time+', color: '#0000FF'},
+            black: {score: -1, effect: 'speed-', color: '#000000'}
+        };
+
         function startGame() {
-            // Hide the play button and show game elements
+            const config = levelConfig[currentLevel];
             document.getElementById('play-button').setAttribute('visible', false);
-            document.getElementById('timer').setAttribute('visible', true);
-            document.getElementById('score').setAttribute('visible', true);
-            // Reset score and timer
+            document.getElementById('timer').setAttribute('value', `Time: ${config.time}`);
+            timeLeft = config.time;
             score = 0;
-            timeLeft = 30;
-            document.getElementById('score').setAttribute('value', `Score: ${score}`);
-            document.getElementById('timer').setAttribute('value', `Time: ${timeLeft}`);
-            // Reset objects
-            resetObjects();
-            // Start the timer
+            resetObjects(config.balls);
             timerInterval = setInterval(updateTimer, 1000);
+            document.querySelector('#backgroundMusic').components.sound.playSound();
         }
-        
+
         function updateTimer() {
             timeLeft--;
             document.getElementById('timer').setAttribute('value', `Time: ${timeLeft}`);
@@ -35,124 +42,138 @@
                 endGame();
             }
         }
-        
+
         function endGame() {
-            // Hide all collectible objects
-            let objects = document.querySelectorAll('.collectible');
-            objects.forEach(obj => {
-                obj.setAttribute('visible', false);
-            });
-            // Show game over message and final score
+            document.querySelectorAll('.collectible').forEach(obj => obj.remove());
             document.getElementById('game-over').setAttribute('visible', true);
-            document.getElementById('final-score').setAttribute('value', `Final Score: ${score}`);
-            document.getElementById('final-score').setAttribute('visible', true);
-            // Update high scores
-            highScores.push(score);
-            highScores.sort((a, b) => b - a);
             updateHighScores();
+            document.querySelector('#backgroundMusic').components.sound.stopSound();
         }
-        
+
         function updateHighScores() {
+            const savedScores = JSON.parse(localStorage.getItem('highScores')) || [];
+            const newScores = [...savedScores, score].sort((a,b) => b-a).slice(0,5);
+            localStorage.setItem('highScores', JSON.stringify(newScores));
+            
             let highScoresText = 'High Scores:\n';
-            highScores.slice(0, 5).forEach((s, i) => {
-                highScoresText += `${i + 1}. ${s}\n`;
+            newScores.forEach((s, i) => {
+                highScoresText += `${i+1}. ${s}\n`;
             });
             document.getElementById('high-scores').setAttribute('value', highScoresText);
         }
-        
-        function resetObjects() {
-            let objects = document.querySelectorAll('.collectible');
-            objects.forEach(obj => {
-                obj.setAttribute('visible', true);
-                obj.setAttribute('position', {
+
+        function spawnObjects(count) {
+            const positions = [];
+            for (let i = 0; i < count; i++) {
+                positions.push({
                     x: Math.random() * 20 - 10,
-                    y: 1,
+                    y: 1.5,
                     z: Math.random() * 20 - 10
                 });
+            }
+            return positions;
+        }
+
+        function resetObjects(count) {
+            const colors = Object.keys(ballTypes);
+            const positions = spawnObjects(count);
+            
+            positions.forEach(pos => {
+                const type = colors[Math.floor(Math.random() * colors.length)];
+                const ball = document.createElement('a-entity');
+                ball.setAttribute('class', `collectible ${type}`);
+                ball.setAttribute('gltf-model', '#ballModel');
+                ball.setAttribute('scale', '0.5 0.5 0.5');
+                ball.setAttribute('shadow', 'cast: true; receive: true');
+                ball.setAttribute('position', pos);
+                ball.setAttribute('animation', `property: position; dir: alternate; dur: 2000; 
+                    to: ${pos.x} 2 ${pos.z}; loop: true`);
+                ball.setAttribute('collectible', `type: ${type}`);
+                document.querySelector('a-scene').appendChild(ball);
             });
         }
-        
+
         AFRAME.registerComponent('collectible', {
+            schema: {type: {default: 'red'}},
             init: function () {
                 this.el.addEventListener('click', () => {
-                    this.el.setAttribute('visible', false);
-                    score++;
+                    const explosion = document.createElement('a-entity');
+                    explosion.setAttribute('particle-system', 'preset: explosion; color: yellow; duration: 500');
+                    explosion.setAttribute('position', this.el.getAttribute('position'));
+                    document.querySelector('a-scene').appendChild(explosion);
+                    
+                    document.querySelector('#collectSound').components.sound.playSound();
+                    score += ballTypes[this.data.type].score;
                     document.getElementById('score').setAttribute('value', `Score: ${score}`);
+                    this.el.parentNode.removeChild(this.el);
                 });
             }
         });
     </script>
 </head>
 <body>
-    <a-scene>
-        <!-- Background Image -->
-        <a-sky src="https://images.unsplash.com/photo-1570923008849-37545cadcc1e?q=80&w=1733&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" rotation="0 -90 0"></a-sky>
-        <!-- Adjusted Lighting -->
-        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
-        <a-light type="directional" color="#ffffff" intensity="0.4" position="5 10 5"></a-light>
-        <!-- Floor -->
-        <a-plane position="0 0 0" rotation="-90 0 0" width="40" height="40" color="#7CFC00" material="shader: flat; transparent: true; opacity: 0.8"></a-plane>
+    <a-scene physics="debug: false" renderer="colorManagement: true; shadow: true">
+        <a-assets>
+            <audio id="collectSound" src="https://cdn.aframe.io/360-image-gallery-boilerplate/audio/click.ogg"></audio>
+            <audio id="backgroundMusic" src="https://cdn.aframe.io/360-image-gallery-boilerplate/audio/background.ogg"></audio>
+            
+            <a-asset-item id="ballModel" src="https://cdn.aframe.io/test-models/models/Box/glTF-Embedded/Box.gltf"></a-asset-item>
+            <a-asset-item id="treasureModel" src="https://cdn.aframe.io/test-models/models/TreasureChest/glTF-Embedded/TreasureChest.gltf"></a-asset-item>
+        </a-assets>
+
+        <!-- Lighting -->
+        <a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="0.8" 
+                position="5 10 5" cast-shadow="true"></a-light>
+
+        <!-- Environment -->
+        <a-sky src="https://cdn.aframe.io/360-image-gallery-boilerplate/img/sechelt.jpg"></a-sky>
+        <a-plane position="0 0 0" rotation="-90 0 0" width="40" height="40" 
+                material="shader: standard; metalness: 0.2; roughness: 0.5; color: #80ff80"
+                shadow="receive: true"></a-plane>
+
+        <!-- Moving Objects -->
+        <a-entity gltf-model="#treasureModel" position="0 1 -8" scale="0.5 0.5 0.5"
+                animation="property: position; to: 5 1 -8; dur: 2000; loop: true; dir: alternate">
+        </a-entity>
+
         <!-- Player -->
         <a-entity id="player" position="0 1.6 0">
             <a-camera>
-                <!-- Cursor for gaze-based interaction -->
                 <a-entity cursor="fuse: true; fuseTimeout: 500"
-                          position="0 0 -1"
-                          geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
-                          material="color: #00FF00; shader: flat">
+                        position="0 0 -1"
+                        geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+                        material="color: #00FF00; shader: flat">
                 </a-entity>
             </a-camera>
-            <!-- Left Controller with Raycaster -->
+            
             <a-entity laser-controls="hand: left"
-                      raycaster="objects: .collectible, #play-button; far: 10"
-                      line="color: #ff0000; opacity: 0.5"
-                      visible="true"
-                      event-set__mouseenter="_event: mouseenter; color: #ff0000"
-                      event-set__mouseleave="_event: mouseleave; color: #000000">
-            </a-entity>
-            <!-- Right Controller with Raycaster -->
-            <a-entity laser-controls="hand: right"
-                      raycaster="objects: .collectible, #play-button; far: 10"
-                      line="color: #ff0000; opacity: 0.5"
-                      visible="true"
-                      event-set__mouseenter="_event: mouseenter; color: #ff0000"
-                      event-set__mouseleave="_event: mouseleave; color: #000000">
+                    raycaster="objects: .collectible, #play-button; far: 10"
+                    line="color: #ff0000; opacity: 0.8"
+                    haptic="enabled: true">
             </a-entity>
         </a-entity>
-        <!-- Generate More Collectible Objects -->
-        <script>
-            const colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'];
-            const numBalls = 50; // Количество шаров
-            for (let i = 0; i < numBalls; i++) {
-                const ball = document.createElement('a-entity');
-                ball.setAttribute('class', 'collectible');
-                ball.setAttribute('geometry', 'primitive: sphere; radius: 0.3'); // Уменьшаем размер шаров
-                ball.setAttribute('material', `color: ${colors[Math.floor(Math.random() * colors.length)]}`);
-                ball.setAttribute('position', {
-                    x: Math.random() * 20 - 10, // Расширяем зону размещения шаров
-                    y: 1,
-                    z: Math.random() * 20 - 10 // Расширяем зону размещения шаров
-                });
-                ball.setAttribute('collectible', '');
-                document.querySelector('a-scene').appendChild(ball);
-            }
-        </script>
-        <!-- Timer and Score -->
-        <a-text id="timer" value="Time: 30" position="-1.5 2.5 -3" color="#FFF" scale="2 2 2" visible="false"></a-text>
-        <a-text id="score" value="Score: 0" position="1.5 2.5 -3" color="#FFF" scale="2 2 2" visible="false"></a-text>
-        <!-- High Scores -->
-        <a-text id="high-scores" value="High Scores:\n1. 0\n2. 0\n3. 0\n4. 0\n5. 0" position="-4 1.5 -3" color="#FFF" scale="1.5 1.5 1.5"></a-text>
-        <!-- Game Over Message -->
-        <a-text id="game-over" value="Game Over!" position="0 1.5 -3" color="#FFF" scale="3 3 3" visible="false"></a-text>
-        <a-text id="final-score" value="Final Score: 0" position="0 1 -3" color="#FFF" scale="2 2 2" visible="false"></a-text>
+
+        <!-- UI Elements -->
+        <a-text id="timer" value="Time: 30" position="-1.5 2.5 -3" color="#FFF" scale="2 2 2"></a-text>
+        <a-text id="score" value="Score: 0" position="1.5 2.5 -3" color="#FFF" scale="2 2 2"></a-text>
+        <a-text id="high-scores" position="-4 1.5 -3" color="#FFF" scale="1.5 1.5 1.5"></a-text>
+        <a-text id="game-over" value="Game Over!" position="0 1.5 -3" 
+               color="#FF0000" scale="3 3 3" visible="false"></a-text>
+
         <!-- Play Button -->
-        <a-entity id="play-button" position="0 1 -3" geometry="primitive: box" material="color: #00FF00" visible="true">
-            <a-text value="Play" position="0 0 0.51" color="#000" align="center" scale="2 2 2"></a-text>
+        <a-entity id="play-button" position="0 1 -3" gltf-model="#ballModel" 
+                scale="0.8 0.8 0.8" visible="true">
+            <a-text value="PLAY" position="0 1.5 0" color="#FFF" align="center" 
+                   scale="2 2 2" width="5"></a-text>
             <a-animation attribute="rotation" to="0 360 0" dur="2000" repeat="indefinite"></a-animation>
-            <a-animation attribute="position" to="0 1.1 -3" dur="1000" direction="alternate" repeat="indefinite"></a-animation>
-            <a-event-set event="click" attribute="visible" to="false"></a-event-set>
+            <a-animation attribute="scale" to="1 1 1" dur="1000" direction="alternate" 
+                       repeat="indefinite"></a-animation>
             <a-event-set event="click" _="startGame()"></a-event-set>
         </a-entity>
+
+        <!-- Particle System -->
+        <a-entity id="explosion" particle-system="preset: explosion; color: yellow" visible="false"></a-entity>
     </a-scene>
 </body>
 </html>
